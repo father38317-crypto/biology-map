@@ -18,11 +18,22 @@ function makeDivIcon(color, opts = {}) {
   });
 }
 
+function makeClusterIcon(cluster, color) {
+  const count = cluster.getChildCount();
+  const size = count < 10 ? 32 : count < 50 ? 38 : 44;
+  return L.divIcon({
+    className: "",
+    html: `<div class="cluster-pin" style="background:${color};width:${size}px;height:${size}px;line-height:${size}px;">${count}</div>`,
+    iconSize: [size, size],
+  });
+}
+
 function initMap() {
   map = L.map("map").setView([CONFIG.SCHOOL_LAT, CONFIG.SCHOOL_LNG], CONFIG.DEFAULT_ZOOM);
 
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
+    className: "pastel-tiles",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
 
@@ -37,7 +48,10 @@ function initMap() {
   }).addTo(map);
 
   CONFIG.CLASSES.forEach((c) => {
-    classLayers[c.id] = L.layerGroup().addTo(map);
+    classLayers[c.id] = L.markerClusterGroup({
+      maxClusterRadius: 45,
+      iconCreateFunction: (cluster) => makeClusterIcon(cluster, c.color),
+    }).addTo(map);
   });
 
   populateClassSelect();

@@ -26,16 +26,16 @@ const CONFIG = {
     { id: "3", label: "3학년" },
   ],
 
-  // 반 목록과 지도 핀 색상 (필요하면 개수/이름/색을 수정하세요)
+  // 반 목록과 지도 핀 색상 (파스텔톤, 필요하면 개수/이름/색을 수정하세요)
   CLASSES: [
-    { id: "1", label: "1반", color: "#e6194B" },
-    { id: "2", label: "2반", color: "#3cb44b" },
-    { id: "3", label: "3반", color: "#4363d8" },
-    { id: "4", label: "4반", color: "#f58231" },
-    { id: "5", label: "5반", color: "#911eb4" },
-    { id: "6", label: "6반", color: "#42d4f4" },
-    { id: "7", label: "7반", color: "#f032e6" },
-    { id: "8", label: "8반", color: "#9A6324" },
-    { id: "9", label: "9반", color: "#469990" },
+    { id: "1", label: "1반", color: "#F5A3A3" },
+    { id: "2", label: "2반", color: "#A9D8A9" },
+    { id: "3", label: "3반", color: "#A7C7EC" },
+    { id: "4", label: "4반", color: "#F6C89F" },
+    { id: "5", label: "5반", color: "#C9AEE4" },
+    { id: "6", label: "6반", color: "#9ADCDC" },
+    { id: "7", label: "7반", color: "#F0AED4" },
+    { id: "8", label: "8반", color: "#D6B98C" },
+    { id: "9", label: "9반", color: "#9FD4C9" },
   ],
 };

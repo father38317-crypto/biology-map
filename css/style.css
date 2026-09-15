@@ -145,6 +145,10 @@ body {
   inset: 0;
 }
 
+.pastel-tiles {
+  filter: saturate(0.5) brightness(1.12) contrast(0.92);
+}
+
 .locate-btn {
   position: absolute;
   z-index: 500;
@@ -193,6 +197,16 @@ body {
 .pin.dashed-marker {
   border: 2px dashed #fff;
   opacity: 0.85;
+}
+
+.cluster-pin {
+  border-radius: 50%;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #3a3a3a;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .school-pin {
