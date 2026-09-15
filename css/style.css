@@ -481,6 +481,35 @@ fieldset.taxon-grid input {
   color: var(--green-700);
 }
 
+.change-pw-box {
+  margin: 12px 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--green-50);
+  max-width: 360px;
+}
+
+.change-pw-box form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.change-pw-box label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.change-pw-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .admin-toolbar {
   display: flex;
   flex-wrap: wrap;

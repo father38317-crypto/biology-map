@@ -11,6 +11,15 @@ async function initAdmin() {
   document.getElementById("statusFilter").addEventListener("change", renderList);
   document.getElementById("classFilter").addEventListener("change", renderList);
   document.getElementById("gradeFilter").addEventListener("change", renderList);
+  document.getElementById("changePwBtn").addEventListener("click", () => {
+    document.getElementById("changePwSection").hidden = false;
+  });
+  document.getElementById("cancelChangePwBtn").addEventListener("click", () => {
+    document.getElementById("changePwSection").hidden = true;
+    document.getElementById("changePwForm").reset();
+    document.getElementById("changePwStatus").textContent = "";
+  });
+  document.getElementById("changePwForm").addEventListener("submit", handleChangePassword);
   buildClassFilterOptions();
   buildGradeFilterOptions();
 
@@ -46,6 +55,36 @@ async function handleLogin(e) {
 
 async function handleLogout() {
   await supabaseClient.auth.signOut();
+}
+
+async function handleChangePassword(e) {
+  e.preventDefault();
+  const newPassword = document.getElementById("newPassword").value;
+  const confirm = document.getElementById("newPasswordConfirm").value;
+  const statusEl = document.getElementById("changePwStatus");
+
+  if (newPassword !== confirm) {
+    statusEl.textContent = "두 비밀번호가 서로 다릅니다.";
+    statusEl.classList.add("error");
+    return;
+  }
+
+  statusEl.textContent = "변경 중...";
+  statusEl.classList.remove("error");
+
+  const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+  if (error) {
+    statusEl.textContent = "변경 실패: " + error.message;
+    statusEl.classList.add("error");
+    return;
+  }
+
+  statusEl.textContent = "비밀번호가 변경되었습니다.";
+  document.getElementById("changePwForm").reset();
+  setTimeout(() => {
+    document.getElementById("changePwSection").hidden = true;
+    statusEl.textContent = "";
+  }, 1500);
 }
 
 function showLogin() {

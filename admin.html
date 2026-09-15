@@ -45,10 +45,28 @@
       </div>
       <div class="toolbar-right">
         <button id="backupBtn" class="btn btn-primary">📦 전체 백업 (CSV+사진)</button>
+        <button id="changePwBtn" class="btn btn-secondary">🔑 비밀번호 변경</button>
         <button id="logoutBtn" class="btn btn-secondary">로그아웃</button>
       </div>
     </div>
     <p id="backupStatus" class="form-status"></p>
+
+    <div id="changePwSection" class="change-pw-box" hidden>
+      <form id="changePwForm">
+        <label>새 비밀번호
+          <input type="password" id="newPassword" required minlength="6" autocomplete="new-password" />
+        </label>
+        <label>새 비밀번호 확인
+          <input type="password" id="newPasswordConfirm" required minlength="6" autocomplete="new-password" />
+        </label>
+        <div class="change-pw-actions">
+          <button type="button" id="cancelChangePwBtn" class="btn btn-secondary">취소</button>
+          <button type="submit" class="btn btn-primary">변경하기</button>
+        </div>
+        <p id="changePwStatus" class="form-status"></p>
+      </form>
+    </div>
+
     <div id="list" class="card-list"></div>
   </section>
 
