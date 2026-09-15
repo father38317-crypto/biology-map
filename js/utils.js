@@ -29,6 +29,11 @@ function classColor(classId) {
   return c ? c.color : "#777777";
 }
 
+function formatLatLng(lat, lng) {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return "-";
+  return `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`;
+}
+
 function statusLabel(status) {
   return { pending: "승인 대기중", approved: "승인됨" }[status] || status;
 }

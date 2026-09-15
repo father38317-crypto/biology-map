@@ -43,11 +43,12 @@ alter table public.observations enable row level security;
 create index if not exists idx_observations_status on public.observations (status);
 create index if not exists idx_observations_class on public.observations (class_name);
 
--- 학생(비로그인, anon): 새 기록은 항상 '대기중' 상태로만 등록 가능
+-- 누구나(로그인 여부 상관없이) 새 기록은 항상 '대기중' 상태로만 등록 가능
+-- (교사가 관리자 페이지에 로그인된 상태로 학생 화면에서 글을 올려도 막히지 않도록 anon이 아닌 public 대상으로 설정)
 drop policy if exists "students_can_insert_pending" on public.observations;
 create policy "students_can_insert_pending"
   on public.observations for insert
-  to anon
+  to public
   with check (status = 'pending');
 
 -- 모든 방문자(비로그인): 승인된 기록만 조회 가능

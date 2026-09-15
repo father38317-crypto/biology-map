@@ -130,6 +130,7 @@ function renderCard(r) {
         <div class="card-title">${escapeHtml(r.plant_name)} <span class="badge">${statusLabel(r.status)}</span></div>
         <div class="card-meta">${escapeHtml(classLabel(r.class_name))} · ${escapeHtml(r.student_name)} · ${new Date(r.created_at).toLocaleString("ko-KR")}</div>
         <div class="card-taxon">종/속/과/목/강/문/계: ${taxonRow}</div>
+        <div class="card-field"><b>위치</b> <a href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank" rel="noopener">${formatLatLng(r.lat, r.lng)}</a></div>
         <div class="card-field"><b>서식지</b> ${escapeHtml(r.habitat || "-")}</div>
         <div class="card-field"><b>형태</b> ${escapeHtml(r.morphology || "-")}</div>
         <div class="card-field"><b>특징</b> ${escapeHtml(r.characteristics || "-")}</div>

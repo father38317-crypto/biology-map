@@ -156,6 +156,7 @@ function renderPopupHtml(obs, opts = {}) {
       ${obs.morphology ? `<div class="row"><b>형태</b> ${escapeHtml(obs.morphology)}</div>` : ""}
       ${obs.characteristics ? `<div class="row"><b>특징</b> ${escapeHtml(obs.characteristics)}</div>` : ""}
       ${obs.behavior ? `<div class="row"><b>습성</b> ${escapeHtml(obs.behavior)}</div>` : ""}
+      <div class="row"><b>위치</b> ${formatLatLng(obs.lat, obs.lng)}</div>
     </div>`;
 }
 
