@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>우리 학교 생물지도</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <h1>🌱 우리 학교 생물지도</h1>
+      <a href="admin.html" class="admin-link">교사용</a>
+    </header>
+
+    <div id="map-page">
+      <div id="filterBar" class="filter-bar"></div>
+      <div style="position: relative; flex: 1 1 auto; min-height: 0">
+        <div id="map"></div>
+        <div class="map-hint">지도를 클릭해서 발견한 생물을 기록하세요</div>
+      </div>
+    </div>
+
+    <!-- 관찰 기록 입력 모달 -->
+    <div id="entryModal" class="modal-overlay" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h2>생물 관찰 기록</h2>
+          <button type="button" id="closeModalBtn" class="icon-btn" aria-label="닫기">✕</button>
+        </div>
+        <form id="entryForm" class="modal-body">
+          <div class="form-row">
+            <label>이름
+              <input type="text" name="student_name" required maxlength="20" placeholder="홍길동" />
+            </label>
+            <label>반
+              <select name="class_name" id="classSelect" required></select>
+            </label>
+          </div>
+
+          <label>식물 이름
+            <input type="text" name="plant_name" required maxlength="60" placeholder="예: 민들레" />
+          </label>
+
+          <fieldset class="taxon-grid">
+            <legend>분류 (종 · 속 · 과 · 목 · 강 · 문 · 계)</legend>
+            <input type="text" name="taxon_species" placeholder="종" maxlength="40" />
+            <input type="text" name="taxon_genus" placeholder="속" maxlength="40" />
+            <input type="text" name="taxon_family" placeholder="과" maxlength="40" />
+            <input type="text" name="taxon_order" placeholder="목" maxlength="40" />
+            <input type="text" name="taxon_class" placeholder="강" maxlength="40" />
+            <input type="text" name="taxon_phylum" placeholder="문" maxlength="40" />
+            <input type="text" name="taxon_kingdom" placeholder="계" maxlength="40" />
+          </fieldset>
+
+          <label>서식지
+            <textarea name="habitat" rows="2" maxlength="300" placeholder="예: 화단 가장자리, 양지바른 곳"></textarea>
+          </label>
+          <label>형태
+            <textarea name="morphology" rows="2" maxlength="300" placeholder="예: 잎은 뿌리에서 방사형으로 남"></textarea>
+          </label>
+          <label>특징
+            <textarea name="characteristics" rows="2" maxlength="300" placeholder="예: 노란 꽃, 톱니 모양의 잎"></textarea>
+          </label>
+          <label>습성
+            <textarea name="behavior" rows="2" maxlength="300" placeholder="예: 봄에 개화, 씨앗은 바람에 날림"></textarea>
+          </label>
+
+          <label>사진 업로드
+            <input type="file" id="photoInput" name="photo" accept="image/*" capture="environment" />
+          </label>
+          <img id="photoPreview" hidden />
+
+          <p id="formStatus" class="form-status"></p>
+
+          <div class="modal-footer">
+            <button type="button" id="cancelBtn" class="btn btn-secondary">취소</button>
+            <button type="submit" id="submitBtn" class="btn btn-primary">등록</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/map.js"></script>
+</body>
+</html>
