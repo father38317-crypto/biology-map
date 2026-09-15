@@ -74,6 +74,18 @@ vercel
 1. 이 폴더를 GitHub 저장소로 push
 2. https://vercel.com 에서 **Add New > Project** → 방금 만든 저장소 선택 → Framework Preset은 **Other**로 두고 Deploy
 
+## 다른 학교에서 재사용하기
+
+이 코드는 학교마다 완전히 독립적으로 복사해서 쓰도록 만들어졌습니다 (데이터베이스도 서로 안 섞임). 다른 학교에서 쓰고 싶다면:
+
+1. 이 GitHub 저장소를 **Fork**하거나, 저장소 페이지에서 **Use this template** 버튼으로 새 저장소를 만듭니다.
+   - (저장소 소유자가 Settings > General > **Template repository** 를 켜두면 "Use this template" 버튼이 생깁니다. Fork보다 깔끔하게 새 저장소로 시작할 수 있습니다.)
+2. **반드시** 그 학교 전용으로 **새 Supabase 프로젝트**를 만들고(1단계부터 그대로 진행), [`js/config.js`](js/config.js)의 `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SCHOOL_LAT` / `SCHOOL_LNG` 등을 그 학교 값으로 전부 교체합니다.
+   - ⚠️ 이 값을 안 바꾸고 그대로 배포하면 새 학교 학생들의 기록이 원래 학교의 데이터베이스로 들어갑니다. `config.js` 맨 위에 경고 주석을 남겨뒀습니다.
+3. 그 학교 전용 **Vercel 프로젝트**로 새로 배포합니다 (서로 다른 Vercel/Supabase 계정이면 완전히 분리되어 안전합니다. 같은 계정이어도 프로젝트만 다르면 무방합니다).
+
+이렇게 하면 학교별로 지도 위치, 반/학년 구성, 교사 계정, 데이터가 전부 독립적으로 운영됩니다.
+
 ## 사용 방법
 
 ### 학생 (index.html)
@@ -102,5 +114,5 @@ vercel
 
 - 이 앱은 별도 서버 없이 브라우저에서 Supabase에 직접 접속합니다. `anon key`는 공개되는 것이 정상이며, 실제 권한 제어는 `sql/schema.sql`의 **Row Level Security 정책**이 담당합니다.
   - 학생(비로그인)은 새 기록을 `pending` 상태로만 등록 가능, `approved` 상태만 조회 가능
-  - 교사(로그인)만 전체 조회/승인/삭제 가능
+  - 교사(로그인)는 `teachers` 테이블에 등록된 **본인 담당 학년의 기록만** 조회/승인/삭제 가능 (다른 학년 데이터는 서버 단에서 원천 차단됨)
 - 사용자가 입력한 텍스트는 지도 팝업/관리자 화면에 표시되기 전에 이스케이프 처리되어 스크립트 삽입(XSS)을 방지합니다.
