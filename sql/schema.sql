@@ -156,11 +156,12 @@ create policy "anyone_can_view_photos"
   to public
   using (bucket_id = 'plant-photos');
 
--- 학생(비로그인)도 사진 업로드 가능
+-- 누구나(로그인 여부 상관없이) 사진 업로드 가능
+-- (교사가 로그인된 상태로 학생 화면에서 사진을 올려도 막히지 않도록 anon이 아닌 public 대상으로 설정)
 drop policy if exists "anon_can_upload_photos" on storage.objects;
 create policy "anon_can_upload_photos"
   on storage.objects for insert
-  to anon
+  to public
   with check (bucket_id = 'plant-photos');
 
 -- 교사(로그인)는 사진 삭제 가능
