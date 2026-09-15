@@ -27,12 +27,16 @@
   </section>
 
   <section id="adminSection" hidden>
+    <p id="myGradeInfo" class="my-grade-info"></p>
     <div class="admin-toolbar">
       <div class="toolbar-left">
         <select id="statusFilter">
           <option value="all">전체 상태</option>
           <option value="pending">승인 대기중</option>
           <option value="approved">승인됨</option>
+        </select>
+        <select id="gradeFilter">
+          <option value="all">전체 학년</option>
         </select>
         <select id="classFilter">
           <option value="all">전체 반</option>

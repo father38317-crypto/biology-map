@@ -2,6 +2,7 @@
 
 let currentUser = null;
 let allRows = [];
+let myGrade = null; // '1' / '2' / '3' / 'ALL' / null(미등록)
 
 async function initAdmin() {
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
@@ -9,7 +10,9 @@ async function initAdmin() {
   document.getElementById("backupBtn").addEventListener("click", () => runBackup());
   document.getElementById("statusFilter").addEventListener("change", renderList);
   document.getElementById("classFilter").addEventListener("change", renderList);
+  document.getElementById("gradeFilter").addEventListener("change", renderList);
   buildClassFilterOptions();
+  buildGradeFilterOptions();
 
   const {
     data: { session },
@@ -50,9 +53,25 @@ function showLogin() {
   document.getElementById("adminSection").hidden = true;
 }
 
-function showAdmin() {
+async function showAdmin() {
   document.getElementById("loginSection").hidden = true;
   document.getElementById("adminSection").hidden = false;
+
+  const { data, error } = await supabaseClient
+    .from("teachers")
+    .select("grade")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  myGrade = error ? null : data?.grade ?? null;
+
+  const gradeInfoEl = document.getElementById("myGradeInfo");
+  if (!myGrade) {
+    gradeInfoEl.textContent = "⚠ 담당 학년이 등록되지 않았습니다. 관리자에게 문의하세요 (schema.sql 4번 참고).";
+  } else {
+    gradeInfoEl.textContent = myGrade === "ALL" ? "담당: 전체 학년" : `담당: ${gradeLabel(myGrade)}`;
+  }
+
   renderList();
 }
 
@@ -62,6 +81,16 @@ function buildClassFilterOptions() {
     const opt = document.createElement("option");
     opt.value = c.id;
     opt.textContent = c.label;
+    sel.appendChild(opt);
+  });
+}
+
+function buildGradeFilterOptions() {
+  const sel = document.getElementById("gradeFilter");
+  CONFIG.GRADES.forEach((g) => {
+    const opt = document.createElement("option");
+    opt.value = g.id;
+    opt.textContent = g.label;
     sel.appendChild(opt);
   });
 }
@@ -86,10 +115,12 @@ async function renderList() {
 
   const statusFilter = document.getElementById("statusFilter").value;
   const classFilter = document.getElementById("classFilter").value;
+  const gradeFilter = document.getElementById("gradeFilter").value;
 
   let rows = allRows;
   if (statusFilter !== "all") rows = rows.filter((r) => r.status === statusFilter);
   if (classFilter !== "all") rows = rows.filter((r) => r.class_name === classFilter);
+  if (gradeFilter !== "all") rows = rows.filter((r) => r.grade === gradeFilter);
 
   const pendingCount = allRows.filter((r) => r.status === "pending").length;
   document.getElementById("countInfo").textContent =
@@ -128,7 +159,7 @@ function renderCard(r) {
       ${url ? `<img class="thumb" src="${url}" alt="사진" loading="lazy">` : '<div class="thumb thumb-empty">사진 없음</div>'}
       <div class="card-body">
         <div class="card-title">${escapeHtml(r.plant_name)} <span class="badge">${statusLabel(r.status)}</span></div>
-        <div class="card-meta">${escapeHtml(classLabel(r.class_name))} · ${escapeHtml(r.student_name)} · ${new Date(r.created_at).toLocaleString("ko-KR")}</div>
+        <div class="card-meta">${escapeHtml(gradeLabel(r.grade))} ${escapeHtml(classLabel(r.class_name))} · ${escapeHtml(r.student_name)} · ${new Date(r.created_at).toLocaleString("ko-KR")}</div>
         <div class="card-taxon">종/속/과/목/강/문/계: ${taxonRow}</div>
         <div class="card-field"><b>위치</b> <a href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank" rel="noopener">${formatLatLng(r.lat, r.lng)}</a></div>
         <div class="card-field"><b>서식지</b> ${escapeHtml(r.habitat || "-")}</div>

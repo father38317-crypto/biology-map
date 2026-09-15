@@ -19,6 +19,13 @@ const CONFIG = {
   SCHOOL_LNG: 126.8844054,
   DEFAULT_ZOOM: 19,
 
+  // 학년 목록 (학년마다 반 구성은 CLASSES를 공동으로 사용합니다)
+  GRADES: [
+    { id: "1", label: "1학년" },
+    { id: "2", label: "2학년" },
+    { id: "3", label: "3학년" },
+  ],
+
   // 반 목록과 지도 핀 색상 (필요하면 개수/이름/색을 수정하세요)
   CLASSES: [
     { id: "1", label: "1반", color: "#e6194B" },

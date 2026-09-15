@@ -19,6 +19,11 @@ function csvEscape(value) {
   return str;
 }
 
+function gradeLabel(gradeId) {
+  const g = CONFIG.GRADES.find((g) => g.id === String(gradeId));
+  return g ? g.label : gradeId;
+}
+
 function classLabel(classId) {
   const c = CONFIG.CLASSES.find((c) => c.id === String(classId));
   return c ? c.label : classId;

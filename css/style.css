@@ -74,6 +74,31 @@ body {
   min-height: 0;
 }
 
+.grade-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 0;
+  background: var(--green-50);
+  flex: 0 0 auto;
+}
+
+.grade-tab {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 8px 8px 0 0;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.grade-tab.active {
+  background: var(--green-600);
+  color: #fff;
+  border-color: var(--green-600);
+}
+
 .filter-bar {
   display: flex;
   gap: 6px;
@@ -431,6 +456,15 @@ fieldset.taxon-grid input {
   gap: 4px;
   font-size: 13px;
   font-weight: 600;
+}
+
+.my-grade-info {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--green-50);
+  color: var(--green-700);
 }
 
 .admin-toolbar {

@@ -5,6 +5,7 @@ let tempMarker = null;
 let pendingClickLatLng = null;
 const classLayers = {}; // classId -> L.layerGroup
 const activeClassIds = new Set(CONFIG.CLASSES.map((c) => c.id));
+let activeViewGrade = CONFIG.GRADES[0].id;
 
 function makeDivIcon(color, opts = {}) {
   const dashedClass = opts.dashed ? " dashed-marker" : "";
@@ -40,6 +41,8 @@ function initMap() {
   });
 
   populateClassSelect();
+  populateGradeSelect();
+  buildGradeTabs();
   buildFilterBar();
   loadApprovedObservations();
 
@@ -60,6 +63,42 @@ function populateClassSelect() {
     opt.textContent = c.label;
     sel.appendChild(opt);
   });
+}
+
+function populateGradeSelect() {
+  const sel = document.getElementById("gradeSelect");
+  CONFIG.GRADES.forEach((g) => {
+    const opt = document.createElement("option");
+    opt.value = g.id;
+    opt.textContent = g.label;
+    sel.appendChild(opt);
+  });
+  sel.value = activeViewGrade;
+}
+
+function buildGradeTabs() {
+  const bar = document.getElementById("gradeTabs");
+  bar.innerHTML = "";
+  CONFIG.GRADES.forEach((g) => {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "grade-tab" + (g.id === activeViewGrade ? " active" : "");
+    tab.textContent = g.label;
+    tab.addEventListener("click", () => switchGrade(g.id));
+    bar.appendChild(tab);
+  });
+}
+
+function switchGrade(gradeId) {
+  if (gradeId === activeViewGrade) return;
+  activeViewGrade = gradeId;
+  document.querySelectorAll(".grade-tab").forEach((tab, i) => {
+    tab.classList.toggle("active", CONFIG.GRADES[i].id === gradeId);
+  });
+  Object.values(classLayers).forEach((layer) => layer.clearLayers());
+  const gradeSelect = document.getElementById("gradeSelect");
+  if (gradeSelect) gradeSelect.value = gradeId;
+  loadApprovedObservations();
 }
 
 function buildFilterBar() {
@@ -113,6 +152,7 @@ async function loadApprovedObservations() {
     .from("observations")
     .select("*")
     .eq("status", "approved")
+    .eq("grade", activeViewGrade)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -246,11 +286,12 @@ async function handleSubmit(e) {
   const form = e.target;
   const fd = new FormData(form);
   const studentName = (fd.get("student_name") || "").trim();
+  const grade = fd.get("grade");
   const className = fd.get("class_name");
   const plantName = (fd.get("plant_name") || "").trim();
 
-  if (!studentName || !className || !plantName) {
-    setFormStatus("이름, 반, 생물 이름은 필수 입력입니다.", true);
+  if (!studentName || !grade || !className || !plantName) {
+    setFormStatus("이름, 학년, 반, 생물 이름은 필수 입력입니다.", true);
     return;
   }
 
@@ -276,6 +317,7 @@ async function handleSubmit(e) {
     setFormStatus("저장 중...");
     const row = {
       student_name: studentName,
+      grade: grade,
       class_name: className,
       lat: pendingClickLatLng.lat,
       lng: pendingClickLatLng.lng,
@@ -311,6 +353,9 @@ async function handleSubmit(e) {
 
 // 승인 전이라도 방금 등록한 학생 본인 화면에는 바로 보여준다 (다른 사람에게는 보이지 않음)
 function addLocalPendingMarker(row) {
+  if (row.grade !== activeViewGrade) {
+    switchGrade(row.grade);
+  }
   const marker = L.marker([row.lat, row.lng], {
     icon: makeDivIcon(classColor(row.class_name), { dashed: true }),
   });

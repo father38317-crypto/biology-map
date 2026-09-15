@@ -17,7 +17,7 @@ async function runBackup() {
     const photosFolder = zip.folder("photos");
 
     const headers = [
-      "등록일시", "반", "이름", "생물이름", "위도", "경도",
+      "등록일시", "학년", "반", "이름", "생물이름", "위도", "경도",
       "종", "속", "과", "목", "강", "문", "계",
       "서식지", "형태", "특징", "습성", "상태", "사진파일명",
     ];
@@ -44,6 +44,7 @@ async function runBackup() {
 
       csvRows.push([
         new Date(r.created_at).toLocaleString("ko-KR"),
+        gradeLabel(r.grade),
         classLabel(r.class_name),
         r.student_name,
         r.plant_name,
