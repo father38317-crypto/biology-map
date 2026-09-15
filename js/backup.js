@@ -17,7 +17,7 @@ async function runBackup() {
     const photosFolder = zip.folder("photos");
 
     const headers = [
-      "등록일시", "반", "이름", "식물이름",
+      "등록일시", "반", "이름", "생물이름",
       "종", "속", "과", "목", "강", "문", "계",
       "서식지", "형태", "특징", "습성", "상태", "사진파일명",
     ];

@@ -120,6 +120,27 @@ body {
   inset: 0;
 }
 
+.locate-btn {
+  position: absolute;
+  z-index: 500;
+  right: 12px;
+  bottom: 14px;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--green-600);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.locate-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .map-hint {
   position: absolute;
   z-index: 500;

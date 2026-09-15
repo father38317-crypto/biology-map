@@ -49,6 +49,7 @@ function initMap() {
   document.getElementById("cancelBtn").addEventListener("click", closeEntryModal);
   document.getElementById("closeModalBtn").addEventListener("click", closeEntryModal);
   document.getElementById("photoInput").addEventListener("change", handlePhotoPreview);
+  document.getElementById("locateBtn").addEventListener("click", handleLocateClick);
 }
 
 function populateClassSelect() {
@@ -159,13 +160,49 @@ function renderPopupHtml(obs, opts = {}) {
 }
 
 function onMapClick(e) {
+  placeTempMarkerAndOpenModal(e.latlng);
+}
+
+function placeTempMarkerAndOpenModal(latlng) {
   if (tempMarker) {
     map.removeLayer(tempMarker);
     tempMarker = null;
   }
-  pendingClickLatLng = e.latlng;
-  tempMarker = L.marker(e.latlng, { icon: makeDivIcon("#555555", { dashed: true }) }).addTo(map);
+  pendingClickLatLng = latlng;
+  tempMarker = L.marker(latlng, { icon: makeDivIcon("#555555", { dashed: true }) }).addTo(map);
   openEntryModal();
+}
+
+function handleLocateClick() {
+  if (!navigator.geolocation) {
+    alert("이 브라우저에서는 위치 확인 기능(GPS)을 사용할 수 없습니다. 지도를 직접 클릭해서 기록해주세요.");
+    return;
+  }
+
+  const btn = document.getElementById("locateBtn");
+  btn.disabled = true;
+  btn.textContent = "위치 확인 중...";
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
+      map.setView(latlng, Math.max(map.getZoom(), CONFIG.DEFAULT_ZOOM));
+      placeTempMarkerAndOpenModal(latlng);
+      btn.disabled = false;
+      btn.textContent = "📍 내 위치로 기록";
+    },
+    (error) => {
+      btn.disabled = false;
+      btn.textContent = "📍 내 위치로 기록";
+      const messages = {
+        1: "위치 권한이 거부되었습니다. 브라우저 설정에서 위치 접근을 허용해주세요.",
+        2: "현재 위치를 확인할 수 없습니다. GPS/네트워크 연결을 확인해주세요.",
+        3: "위치 확인 시간이 초과되었습니다. 다시 시도해주세요.",
+      };
+      alert(messages[error.code] || "위치를 가져오지 못했습니다. 지도를 직접 클릭해서 기록해주세요.");
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
 }
 
 function openEntryModal() {
@@ -212,7 +249,7 @@ async function handleSubmit(e) {
   const plantName = (fd.get("plant_name") || "").trim();
 
   if (!studentName || !className || !plantName) {
-    setFormStatus("이름, 반, 식물 이름은 필수 입력입니다.", true);
+    setFormStatus("이름, 반, 생물 이름은 필수 입력입니다.", true);
     return;
   }
 
