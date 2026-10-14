@@ -1,0 +1,32 @@
+name: Supabase keep-alive
+
+# Supabase 무료 프로젝트는 7일간 접속이 없으면 자동 일시정지되므로, 매일 가벼운 조회 요청을 보낸다.
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ping Supabase
+        run: |
+          URL=$(grep -oP 'SUPABASE_URL:\s*"\K[^"]+' js/config.js)
+          KEY=$(grep -oP 'SUPABASE_ANON_KEY:\s*"\K[^"]+' js/config.js)
+          curl --fail --silent --show-error --max-time 30 \
+            -H "apikey: $KEY" \
+            "$URL/rest/v1/observations?select=id&limit=1" > /dev/null
+          echo "Supabase 응답 정상"
+
+      # 공개 저장소는 60일간 활동이 없으면 예약 실행이 꺼지므로, 매 실행마다 스스로 다시 활성화해 그 타이머를 초기화한다.
+      - name: Keep this schedule enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable keepalive.yml
