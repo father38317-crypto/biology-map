@@ -57,6 +57,68 @@ alter table public.observations
 alter table public.observations
   add constraint observations_author_type_check check (author_type in ('student', 'teacher'));
 
+-- 교사가 내용(이름/학년/반/위치/설명 등)을 수정한 시각. 승인 처리만 한 경우에는 바뀌지 않음 (아래 트리거가 자동 기록)
+alter table public.observations
+  add column if not exists edited_at timestamptz;
+
+create or replace function public.mark_observation_edited()
+returns trigger
+language plpgsql
+as $$
+begin
+  if (
+    new.student_name, new.grade, new.class_name, new.lat, new.lng, new.plant_name,
+    new.taxon_species, new.taxon_genus, new.taxon_family, new.taxon_order,
+    new.taxon_class, new.taxon_phylum, new.taxon_kingdom,
+    new.habitat, new.morphology, new.characteristics, new.behavior
+  ) is distinct from (
+    old.student_name, old.grade, old.class_name, old.lat, old.lng, old.plant_name,
+    old.taxon_species, old.taxon_genus, old.taxon_family, old.taxon_order,
+    old.taxon_class, old.taxon_phylum, old.taxon_kingdom,
+    old.habitat, old.morphology, old.characteristics, old.behavior
+  ) then
+    new.edited_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_mark_observation_edited on public.observations;
+create trigger trg_mark_observation_edited
+  before update on public.observations
+  for each row execute function public.mark_observation_edited();
+
+-- 학생용 "내 기록": 글을 올릴 때 기기에 저장해 둔 무작위 ID(추측 불가)를 가진 사람만 그 글의 승인 상태/수정 여부를 조회할 수 있음
+-- (승인 전 글은 원래 비로그인 사용자에게 보이지 않으므로, RLS를 우회하는 함수로 제한된 정보만 돌려준다)
+create or replace function public.get_my_observations(p_ids uuid[])
+returns table (
+  id uuid,
+  student_name text,
+  plant_name text,
+  grade text,
+  class_name text,
+  status text,
+  created_at timestamptz,
+  reviewed_at timestamptz,
+  edited_at timestamptz,
+  lat double precision,
+  lng double precision
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select o.id, o.student_name, o.plant_name, o.grade, o.class_name,
+         o.status, o.created_at, o.reviewed_at, o.edited_at, o.lat, o.lng
+  from public.observations o
+  where o.id = any (p_ids[1:50])
+  order by o.created_at desc;
+$$;
+
+revoke all on function public.get_my_observations(uuid[]) from public;
+grant execute on function public.get_my_observations(uuid[]) to anon, authenticated;
+
 alter table public.observations enable row level security;
 
 create index if not exists idx_observations_status on public.observations (status);
@@ -172,6 +234,10 @@ create policy "teacher_can_delete_own_grade"
         and (t.grade = observations.grade or t.grade = 'ALL')
     )
   );
+
+
+-- 새로 만든 함수(get_my_observations)를 API가 바로 인식하도록 갱신
+notify pgrst, 'reload schema';
 
 
 -- 4) 사진 저장용 Storage 버킷 -----------------------------------------

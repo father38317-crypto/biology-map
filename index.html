@@ -18,6 +18,7 @@
           교사 로그인 중
           <button type="button" id="teacherLogoutBtn" class="teacher-logout">로그아웃</button>
         </span>
+        <button type="button" id="myRecordsBtn" class="admin-link">내 기록</button>
         <a href="admin.html" class="admin-link">교사용</a>
       </div>
     </header>
@@ -101,6 +102,24 @@
         </form>
       </div>
     </div>
+
+    <!-- 내 기록(승인 상태/수정 여부 확인) 모달 -->
+    <div id="myModal" class="modal-overlay" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h2>내 기록</h2>
+          <button type="button" id="closeMyBtn" class="icon-btn" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="my-note">이 기기(이 브라우저)에서 올린 기록만 보여요. 다른 기기나 다른 브라우저(예: 카카오톡 안에서 연 화면 ↔ 크롬)에서는 보이지 않아요.</p>
+          <p id="myRecordsStatus" class="form-status"></p>
+          <div id="myRecordsList"></div>
+          <div class="modal-footer">
+            <button type="button" id="clearMyBtn" class="btn btn-secondary">이 기기의 목록 지우기</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -110,5 +129,6 @@
   <script src="js/utils.js"></script>
   <script src="js/supabaseClient.js"></script>
   <script src="js/map.js"></script>
+  <script src="js/myrecords.js"></script>
 </body>
 </html>

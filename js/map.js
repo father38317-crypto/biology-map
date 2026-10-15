@@ -439,6 +439,7 @@ async function handleSubmit(e) {
 
     setFormStatus("저장 중...");
     const row = {
+      id: generateUuid(),
       student_name: studentName,
       grade: grade,
       class_name: className,
@@ -472,6 +473,17 @@ async function handleSubmit(e) {
     const { error: insertError } = await supabaseClient.from("observations").insert(row);
     if (insertError) throw insertError;
 
+    rememberMyRecord({
+      id: row.id,
+      student_name: row.student_name,
+      plant_name: row.plant_name,
+      grade: row.grade,
+      class_name: row.class_name,
+      lat: row.lat,
+      lng: row.lng,
+      created_at: new Date().toISOString(),
+    });
+
     // 저장은 이미 끝났으므로, 아래 화면 갱신에서 문제가 생겨도 "오류"로 보이지 않게 한다 (재제출로 인한 중복 등록 방지)
     try {
       if (row.status === "approved") {
@@ -486,7 +498,7 @@ async function handleSubmit(e) {
     alert(
       row.status === "approved"
         ? "등록 완료! 교사 자료는 자동 승인되어 바로 지도에 표시됩니다."
-        : "제출 완료! 선생님이 승인하면 모두에게 지도에 표시됩니다."
+        : "제출 완료! 선생님이 승인하면 모두에게 지도에 표시됩니다.\n위쪽 '내 기록'에서 승인 여부와 수정 여부를 확인할 수 있어요."
     );
   } catch (err) {
     console.error(err);

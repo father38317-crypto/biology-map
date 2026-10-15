@@ -73,7 +73,97 @@ body {
 .header-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.app-header {
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.app-header h1 {
+  white-space: nowrap;
+}
+
+button.admin-link {
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.my-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.my-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 24px 0;
+}
+
+.my-record {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.my-record-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.my-line {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.my-line.edited {
+  color: #7a5c00;
+  font-weight: 600;
+}
+
+.my-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef2ef;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.my-badge.ok {
+  background: #e3f3e5;
+  color: var(--green-700);
+}
+
+.my-badge.wait {
+  background: #fff3cd;
+  color: #7a5c00;
+}
+
+.my-badge.gone {
+  background: #fdeaea;
+  color: var(--danger);
+}
+
+.my-locate {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
 }
 
 .teacher-status {
@@ -716,5 +806,14 @@ fieldset.taxon-grid input {
   }
   .form-row {
     flex-direction: column;
+  }
+  .map-hint {
+    top: 10px;
+    bottom: auto;
+    left: 56px;
+    right: 12px;
+    transform: none;
+    text-align: center;
+    border-radius: 12px;
   }
 }
