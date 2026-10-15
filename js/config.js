@@ -19,6 +19,11 @@ const CONFIG = {
   PHOTO_MAX_WIDTH: 1200, // px
   PHOTO_QUALITY: 0.75,   // 0.7 ~ 0.8 권장
 
+  // "내 위치로 기록" GPS 측정 설정
+  GPS_TARGET_ACCURACY_M: 15, // 이 정확도(m) 이하가 되면 바로 확정
+  GPS_MAX_WAIT_MS: 20000,    // 최대 측정 시간(ms). 이 안에 얻은 가장 정확한 값을 사용
+  GPS_WARN_ACCURACY_M: 30,   // 이 값(m)보다 부정확하면 입력창에 경고 표시
+
   // 학교 위치 (지도 초기 중심 좌표) - 실제 학교 좌표로 반드시 변경하세요.
   // 구글맵에서 학교 건물을 우클릭하면 좌표가 나옵니다. (위도, 경도 순서)
   SCHOOL_LAT: 35.1775562,

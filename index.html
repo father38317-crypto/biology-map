@@ -13,7 +13,13 @@
   <div id="app">
     <header class="app-header">
       <h1>🌱 우리 학교 생물지도</h1>
-      <a href="admin.html" class="admin-link">교사용</a>
+      <div class="header-right">
+        <span id="teacherStatus" class="teacher-status" hidden>
+          교사 로그인 중
+          <button type="button" id="teacherLogoutBtn" class="teacher-logout">로그아웃</button>
+        </span>
+        <a href="admin.html" class="admin-link">교사용</a>
+      </div>
     </header>
 
     <div id="map-page">
@@ -34,6 +40,13 @@
           <button type="button" id="closeModalBtn" class="icon-btn" aria-label="닫기">✕</button>
         </div>
         <form id="entryForm" class="modal-body">
+          <p id="locationInfo" class="location-info"></p>
+
+          <label id="teacherPostRow" class="check-row" hidden>
+            <input type="checkbox" id="postAsTeacher" checked />
+            교사 자료로 등록 (지도에 "교사"로 표시됩니다)
+          </label>
+
           <div class="form-row">
             <label>이름
               <input type="text" name="student_name" required maxlength="20" placeholder="홍길동" />

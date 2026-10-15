@@ -20,6 +20,9 @@ async function initAdmin() {
     document.getElementById("changePwStatus").textContent = "";
   });
   document.getElementById("changePwForm").addEventListener("submit", handleChangePassword);
+  document.getElementById("closeEditBtn").addEventListener("click", closeEditModal);
+  document.getElementById("cancelEditBtn").addEventListener("click", closeEditModal);
+  document.getElementById("editForm").addEventListener("submit", handleEditSubmit);
   buildClassFilterOptions();
   buildGradeFilterOptions();
 
@@ -175,6 +178,7 @@ async function renderList() {
   rows.forEach((r) => {
     const approveBtn = document.getElementById(`approve-${r.id}`);
     if (approveBtn) approveBtn.addEventListener("click", () => approveRow(r.id));
+    document.getElementById(`edit-${r.id}`).addEventListener("click", () => openEditModal(r.id));
     document.getElementById(`delete-${r.id}`).addEventListener("click", () => deleteRow(r.id, r.photo_path));
   });
 }
@@ -197,7 +201,7 @@ function renderCard(r) {
     <div class="card status-${r.status}">
       ${url ? `<img class="thumb" src="${url}" alt="사진" loading="lazy">` : '<div class="thumb thumb-empty">사진 없음</div>'}
       <div class="card-body">
-        <div class="card-title">${escapeHtml(r.plant_name)} <span class="badge">${statusLabel(r.status)}</span></div>
+        <div class="card-title">${escapeHtml(r.plant_name)} <span class="badge">${statusLabel(r.status)}</span>${r.author_type === "teacher" ? ' <span class="teacher-badge">교사</span>' : ""}</div>
         <div class="card-meta">${escapeHtml(gradeLabel(r.grade))} ${escapeHtml(classLabel(r.class_name))} · ${escapeHtml(r.student_name)} · ${new Date(r.created_at).toLocaleString("ko-KR")}</div>
         <div class="card-taxon">종/속/과/목/강/문/계: ${taxonRow}</div>
         <div class="card-field"><b>위치</b> <a href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank" rel="noopener">${formatLatLng(r.lat, r.lng)}</a></div>
@@ -207,10 +211,124 @@ function renderCard(r) {
         <div class="card-field"><b>습성</b> ${escapeHtml(r.behavior || "-")}</div>
         <div class="card-actions">
           ${r.status !== "approved" ? `<button id="approve-${r.id}" class="btn btn-approve">승인</button>` : ""}
+          <button id="edit-${r.id}" class="btn btn-secondary">수정</button>
           <button id="delete-${r.id}" class="btn btn-delete">삭제</button>
         </div>
       </div>
     </div>`;
+}
+
+let editingId = null;
+
+function openEditModal(id) {
+  const r = allRows.find((row) => row.id === id);
+  if (!r) return;
+  editingId = id;
+  const form = document.getElementById("editForm");
+
+  const gradeSel = document.getElementById("editGrade");
+  gradeSel.innerHTML = "";
+  CONFIG.GRADES.filter((g) => myGrade === "ALL" || g.id === myGrade).forEach((g) => {
+    const opt = document.createElement("option");
+    opt.value = g.id;
+    opt.textContent = g.label;
+    gradeSel.appendChild(opt);
+  });
+
+  const classSel = document.getElementById("editClass");
+  if (!classSel.options.length) {
+    CONFIG.CLASSES.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.label;
+      classSel.appendChild(opt);
+    });
+  }
+
+  [
+    "student_name", "plant_name", "habitat", "morphology", "characteristics", "behavior",
+    "taxon_species", "taxon_genus", "taxon_family", "taxon_order", "taxon_class", "taxon_phylum", "taxon_kingdom",
+    "lat", "lng", "grade", "class_name",
+  ].forEach((name) => {
+    form.elements[name].value = r[name] ?? "";
+  });
+
+  document.getElementById("editStatus").textContent = "";
+  document.getElementById("editModal").hidden = false;
+}
+
+function closeEditModal() {
+  document.getElementById("editModal").hidden = true;
+  editingId = null;
+}
+
+async function handleEditSubmit(e) {
+  e.preventDefault();
+  if (!editingId) return;
+
+  const fd = new FormData(e.target);
+  const text = (key) => String(fd.get(key) ?? "").trim();
+  const optional = (key) => text(key) || null;
+  const statusEl = document.getElementById("editStatus");
+  const saveBtn = document.getElementById("saveEditBtn");
+
+  const lat = parseFloat(fd.get("lat"));
+  const lng = parseFloat(fd.get("lng"));
+  if (!text("student_name") || !text("plant_name")) {
+    statusEl.textContent = "이름과 생물 이름은 비워둘 수 없습니다.";
+    statusEl.classList.add("error");
+    return;
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    statusEl.textContent = "위도(-90~90)와 경도(-180~180)를 올바르게 입력해주세요.";
+    statusEl.classList.add("error");
+    return;
+  }
+
+  const updates = {
+    student_name: text("student_name"),
+    grade: text("grade"),
+    class_name: text("class_name"),
+    plant_name: text("plant_name"),
+    lat,
+    lng,
+    taxon_species: optional("taxon_species"),
+    taxon_genus: optional("taxon_genus"),
+    taxon_family: optional("taxon_family"),
+    taxon_order: optional("taxon_order"),
+    taxon_class: optional("taxon_class"),
+    taxon_phylum: optional("taxon_phylum"),
+    taxon_kingdom: optional("taxon_kingdom"),
+    habitat: optional("habitat"),
+    morphology: optional("morphology"),
+    characteristics: optional("characteristics"),
+    behavior: optional("behavior"),
+  };
+
+  saveBtn.disabled = true;
+  statusEl.textContent = "저장 중...";
+  statusEl.classList.remove("error");
+
+  const { data, error } = await supabaseClient
+    .from("observations")
+    .update(updates)
+    .eq("id", editingId)
+    .select("id");
+
+  saveBtn.disabled = false;
+  if (error) {
+    statusEl.textContent = "저장 실패: " + error.message;
+    statusEl.classList.add("error");
+    return;
+  }
+  if (!data || data.length === 0) {
+    statusEl.textContent = "저장되지 않았습니다. 수정 권한이 없거나 이미 삭제된 게시물입니다.";
+    statusEl.classList.add("error");
+    return;
+  }
+
+  closeEditModal();
+  renderList();
 }
 
 async function approveRow(id) {

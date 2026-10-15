@@ -70,6 +70,73 @@
     <div id="list" class="card-list"></div>
   </section>
 
+  <!-- 게시물 수정 모달 -->
+  <div id="editModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h2>게시물 수정</h2>
+        <button type="button" id="closeEditBtn" class="icon-btn" aria-label="닫기">✕</button>
+      </div>
+      <form id="editForm" class="modal-body">
+        <div class="form-row">
+          <label>이름
+            <input type="text" name="student_name" required maxlength="20" />
+          </label>
+          <label>학년
+            <select name="grade" id="editGrade" required></select>
+          </label>
+          <label>반
+            <select name="class_name" id="editClass" required></select>
+          </label>
+        </div>
+
+        <label>생물 이름
+          <input type="text" name="plant_name" required maxlength="60" />
+        </label>
+
+        <fieldset class="taxon-grid">
+          <legend>분류 (종 · 속 · 과 · 목 · 강 · 문 · 계)</legend>
+          <input type="text" name="taxon_species" placeholder="종" maxlength="40" />
+          <input type="text" name="taxon_genus" placeholder="속" maxlength="40" />
+          <input type="text" name="taxon_family" placeholder="과" maxlength="40" />
+          <input type="text" name="taxon_order" placeholder="목" maxlength="40" />
+          <input type="text" name="taxon_class" placeholder="강" maxlength="40" />
+          <input type="text" name="taxon_phylum" placeholder="문" maxlength="40" />
+          <input type="text" name="taxon_kingdom" placeholder="계" maxlength="40" />
+        </fieldset>
+
+        <label>서식지
+          <textarea name="habitat" rows="2" maxlength="300"></textarea>
+        </label>
+        <label>형태
+          <textarea name="morphology" rows="2" maxlength="300"></textarea>
+        </label>
+        <label>특징
+          <textarea name="characteristics" rows="2" maxlength="300"></textarea>
+        </label>
+        <label>습성
+          <textarea name="behavior" rows="2" maxlength="300"></textarea>
+        </label>
+
+        <div class="form-row">
+          <label>위도
+            <input type="number" name="lat" step="any" min="-90" max="90" required />
+          </label>
+          <label>경도
+            <input type="number" name="lng" step="any" min="-180" max="180" required />
+          </label>
+        </div>
+
+        <p id="editStatus" class="form-status"></p>
+
+        <div class="modal-footer">
+          <button type="button" id="cancelEditBtn" class="btn btn-secondary">취소</button>
+          <button type="submit" id="saveEditBtn" class="btn btn-primary">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="js/config.js"></script>

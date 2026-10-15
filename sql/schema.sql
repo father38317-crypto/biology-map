@@ -48,6 +48,15 @@ alter table public.observations
 alter table public.observations
   add constraint observations_grade_check check (grade in ('1', '2', '3'));
 
+-- 작성자 구분: 'student'(기본) / 'teacher' (교사가 올린 자료는 지도와 관리자 화면에 "교사"로 표시)
+alter table public.observations
+  add column if not exists author_type text not null default 'student';
+
+alter table public.observations
+  drop constraint if exists observations_author_type_check;
+alter table public.observations
+  add constraint observations_author_type_check check (author_type in ('student', 'teacher'));
+
 alter table public.observations enable row level security;
 
 create index if not exists idx_observations_status on public.observations (status);
@@ -80,11 +89,18 @@ create policy "teacher_can_read_own_row"
 
 -- 누구나(로그인 여부 상관없이) 새 기록은 항상 '대기중' 상태로만 등록 가능
 -- (교사가 관리자 페이지에 로그인된 상태로 학생 화면에서 글을 올려도 막히지 않도록 anon이 아닌 public 대상으로 설정)
+-- 단, 작성자 구분을 'teacher'로 올리려면 teachers 테이블에 등록된 교사 계정으로 로그인되어 있어야 함 (학생의 위장 방지)
 drop policy if exists "students_can_insert_pending" on public.observations;
 create policy "students_can_insert_pending"
   on public.observations for insert
   to public
-  with check (status = 'pending');
+  with check (
+    status = 'pending'
+    and (
+      author_type = 'student'
+      or exists (select 1 from public.teachers t where t.user_id = auth.uid())
+    )
+  );
 
 -- 모든 방문자(비로그인): 승인된 기록만 조회 가능 (모든 학년)
 drop policy if exists "public_can_view_approved" on public.observations;

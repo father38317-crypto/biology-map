@@ -6,12 +6,16 @@ let pendingClickLatLng = null;
 const classLayers = {}; // classId -> L.layerGroup
 const activeClassIds = new Set(CONFIG.CLASSES.map((c) => c.id));
 let activeViewGrade = CONFIG.GRADES[0].id;
+let isTeacher = false;
+let accuracyCircle = null;
+let pendingLocationInfo = null; // { source: "click" | "gps", accuracy?: number }
 
 function makeDivIcon(color, opts = {}) {
   const dashedClass = opts.dashed ? " dashed-marker" : "";
+  const teacherClass = opts.teacher ? " teacher-pin" : "";
   return L.divIcon({
     className: "",
-    html: `<span class="pin${dashedClass}" style="background:${color}"></span>`,
+    html: `<span class="pin${dashedClass}${teacherClass}" style="background:${color}"></span>`,
     iconSize: [20, 20],
     iconAnchor: [10, 10],
     popupAnchor: [0, -10],
@@ -59,6 +63,8 @@ function initMap() {
   buildGradeTabs();
   buildFilterBar();
   loadApprovedObservations();
+  detectTeacher();
+  supabaseClient.auth.onAuthStateChange(() => detectTeacher());
 
   map.on("click", onMapClick);
 
@@ -67,6 +73,25 @@ function initMap() {
   document.getElementById("closeModalBtn").addEventListener("click", closeEntryModal);
   document.getElementById("photoInput").addEventListener("change", handlePhotoPreview);
   document.getElementById("locateBtn").addEventListener("click", handleLocateClick);
+  document.getElementById("teacherLogoutBtn").addEventListener("click", () => supabaseClient.auth.signOut());
+}
+
+// 교사 계정으로 로그인된 브라우저인지 확인 (teachers 테이블에 본인 행이 있으면 교사)
+async function detectTeacher() {
+  let teacher = false;
+  const {
+    data: { session },
+  } = await supabaseClient.auth.getSession();
+  if (session) {
+    const { data } = await supabaseClient
+      .from("teachers")
+      .select("user_id")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    teacher = !!data;
+  }
+  isTeacher = teacher;
+  document.getElementById("teacherStatus").hidden = !teacher;
 }
 
 function populateClassSelect() {
@@ -161,8 +186,9 @@ function setClassVisible(classId, visible) {
   }
 }
 
+// 교사가 로그인된 브라우저에서도 학생들과 똑같이 승인된 전체 기록이 보이도록 로그인 세션이 없는 클라이언트로 조회한다
 async function loadApprovedObservations() {
-  const { data, error } = await supabaseClient
+  const { data, error } = await supabasePublic
     .from("observations")
     .select("*")
     .eq("status", "approved")
@@ -178,7 +204,9 @@ async function loadApprovedObservations() {
 
 function addObservationMarker(obs) {
   const color = classColor(obs.class_name);
-  const marker = L.marker([obs.lat, obs.lng], { icon: makeDivIcon(color) });
+  const marker = L.marker([obs.lat, obs.lng], {
+    icon: makeDivIcon(color, { teacher: obs.author_type === "teacher" }),
+  });
   marker.bindPopup(renderPopupHtml(obs), { maxWidth: 260 });
   const layer = classLayers[obs.class_name];
   (layer || map).addLayer(marker);
@@ -204,7 +232,7 @@ function renderPopupHtml(obs, opts = {}) {
       ${opts.pending ? '<span class="pending-badge">승인 대기중</span>' : ""}
       ${photoUrl ? `<img src="${photoUrl}" alt="사진">` : ""}
       <h3>${escapeHtml(obs.plant_name)}</h3>
-      <div class="meta">${escapeHtml(classLabel(obs.class_name))} · ${escapeHtml(obs.student_name)}</div>
+      <div class="meta">${escapeHtml(classLabel(obs.class_name))} · ${escapeHtml(obs.student_name)}${obs.author_type === "teacher" ? ' <span class="teacher-badge">교사</span>' : ""}</div>
       ${taxonParts ? `<div class="row"><b>분류</b> ${taxonParts}</div>` : ""}
       ${obs.habitat ? `<div class="row"><b>서식지</b> ${escapeHtml(obs.habitat)}</div>` : ""}
       ${obs.morphology ? `<div class="row"><b>형태</b> ${escapeHtml(obs.morphology)}</div>` : ""}
@@ -215,19 +243,40 @@ function renderPopupHtml(obs, opts = {}) {
 }
 
 function onMapClick(e) {
-  placeTempMarkerAndOpenModal(e.latlng);
+  placeTempMarkerAndOpenModal(e.latlng, { source: "click" });
 }
 
-function placeTempMarkerAndOpenModal(latlng) {
+function clearTempLocationLayers() {
   if (tempMarker) {
     map.removeLayer(tempMarker);
     tempMarker = null;
   }
+  if (accuracyCircle) {
+    map.removeLayer(accuracyCircle);
+    accuracyCircle = null;
+  }
+}
+
+function placeTempMarkerAndOpenModal(latlng, info) {
+  clearTempLocationLayers();
   pendingClickLatLng = latlng;
+  pendingLocationInfo = info;
   tempMarker = L.marker(latlng, { icon: makeDivIcon("#555555", { dashed: true }) }).addTo(map);
+  if (info.source === "gps" && info.accuracy) {
+    accuracyCircle = L.circle(latlng, {
+      radius: info.accuracy,
+      color: "#388e3c",
+      weight: 1,
+      fillColor: "#388e3c",
+      fillOpacity: 0.12,
+      interactive: false,
+    }).addTo(map);
+  }
   openEntryModal();
 }
 
+// 위치를 몇 초간 계속 측정해서 가장 정확한 값을 사용한다.
+// (한 번만 읽으면 휴대폰이 처음 알려주는 대략적인 위치(Wi-Fi/기지국 기반, 수십~수백 m 오차)가 그대로 쓰인다)
 function handleLocateClick() {
   if (!navigator.geolocation) {
     alert("이 브라우저에서는 위치 확인 기능(GPS)을 사용할 수 없습니다. 지도를 직접 클릭해서 기록해주세요.");
@@ -235,32 +284,79 @@ function handleLocateClick() {
   }
 
   const btn = document.getElementById("locateBtn");
+  const idleText = "📍 내 위치로 기록";
   btn.disabled = true;
-  btn.textContent = "위치 확인 중...";
+  btn.textContent = "위치 측정 중...";
 
-  navigator.geolocation.getCurrentPosition(
+  let best = null;
+  let lastError = null;
+  let finished = false;
+  let watchId = null;
+  let timer = null;
+
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    navigator.geolocation.clearWatch(watchId);
+    clearTimeout(timer);
+    btn.disabled = false;
+    btn.textContent = idleText;
+
+    if (!best) {
+      const messages = {
+        1: "위치 권한이 거부되었습니다. 브라우저(또는 휴대폰) 설정에서 이 사이트의 위치 접근을 허용해주세요.",
+        2: "현재 위치를 확인할 수 없습니다. 휴대폰의 위치(GPS) 설정을 켜고, 하늘이 트인 곳에서 다시 시도해주세요.",
+        3: "위치 확인 시간이 초과되었습니다. 하늘이 트인 곳에서 다시 시도해주세요.",
+      };
+      alert(messages[lastError && lastError.code] || messages[3]);
+      return;
+    }
+
+    const latlng = L.latLng(best.coords.latitude, best.coords.longitude);
+    map.setView(latlng, Math.max(map.getZoom(), CONFIG.DEFAULT_ZOOM));
+    placeTempMarkerAndOpenModal(latlng, { source: "gps", accuracy: best.coords.accuracy });
+  };
+
+  watchId = navigator.geolocation.watchPosition(
     (position) => {
-      const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
-      map.setView(latlng, Math.max(map.getZoom(), CONFIG.DEFAULT_ZOOM));
-      placeTempMarkerAndOpenModal(latlng);
-      btn.disabled = false;
-      btn.textContent = "📍 내 위치로 기록";
+      if (!best || position.coords.accuracy < best.coords.accuracy) best = position;
+      btn.textContent = `위치 측정 중... ±${Math.round(best.coords.accuracy)}m`;
+      if (best.coords.accuracy <= CONFIG.GPS_TARGET_ACCURACY_M) finish();
     },
     (error) => {
-      btn.disabled = false;
-      btn.textContent = "📍 내 위치로 기록";
-      const messages = {
-        1: "위치 권한이 거부되었습니다. 브라우저 설정에서 위치 접근을 허용해주세요.",
-        2: "현재 위치를 확인할 수 없습니다. GPS/네트워크 연결을 확인해주세요.",
-        3: "위치 확인 시간이 초과되었습니다. 다시 시도해주세요.",
-      };
-      alert(messages[error.code] || "위치를 가져오지 못했습니다. 지도를 직접 클릭해서 기록해주세요.");
+      lastError = error;
+      if (error.code === 1) finish();
     },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    { enableHighAccuracy: true, timeout: CONFIG.GPS_MAX_WAIT_MS, maximumAge: 0 }
   );
+  timer = setTimeout(finish, CONFIG.GPS_MAX_WAIT_MS);
+}
+
+function renderLocationInfo() {
+  const el = document.getElementById("locationInfo");
+  const info = pendingLocationInfo;
+  el.classList.remove("warn");
+  if (!info || !pendingClickLatLng) {
+    el.textContent = "";
+    return;
+  }
+  const coords = formatLatLng(pendingClickLatLng.lat, pendingClickLatLng.lng);
+  if (info.source === "gps") {
+    const acc = Math.round(info.accuracy);
+    el.textContent = `📍 내 위치 (정확도 ±${acc}m) · ${coords}`;
+    if (acc > CONFIG.GPS_WARN_ACCURACY_M) {
+      el.classList.add("warn");
+      el.textContent += ` — 정확도가 낮습니다. 취소 후 하늘이 트인 곳에서 다시 측정하거나, 지도를 눌러 위치를 직접 지정하세요.`;
+    }
+  } else {
+    el.textContent = `🗺 지도에서 선택한 위치 · ${coords}`;
+  }
 }
 
 function openEntryModal() {
+  document.getElementById("gradeSelect").value = activeViewGrade;
+  document.getElementById("teacherPostRow").hidden = !isTeacher;
+  renderLocationInfo();
   document.getElementById("entryModal").hidden = false;
 }
 
@@ -269,11 +365,9 @@ function closeEntryModal() {
   document.getElementById("entryForm").reset();
   document.getElementById("photoPreview").hidden = true;
   setFormStatus("");
-  if (tempMarker) {
-    map.removeLayer(tempMarker);
-    tempMarker = null;
-  }
+  clearTempLocationLayers();
   pendingClickLatLng = null;
+  pendingLocationInfo = null;
 }
 
 function handlePhotoPreview() {
@@ -350,6 +444,9 @@ async function handleSubmit(e) {
       photo_path: photoPath,
       status: "pending",
     };
+    if (isTeacher && document.getElementById("postAsTeacher").checked) {
+      row.author_type = "teacher";
+    }
 
     const { error: insertError } = await supabaseClient.from("observations").insert(row);
     if (insertError) throw insertError;
@@ -371,7 +468,7 @@ function addLocalPendingMarker(row) {
     switchGrade(row.grade);
   }
   const marker = L.marker([row.lat, row.lng], {
-    icon: makeDivIcon(classColor(row.class_name), { dashed: true }),
+    icon: makeDivIcon(classColor(row.class_name), { dashed: true, teacher: row.author_type === "teacher" }),
   });
   marker.bindPopup(renderPopupHtml(row, { pending: true }), { maxWidth: 260 });
   const layer = classLayers[row.class_name];
