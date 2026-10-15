@@ -87,18 +87,32 @@ create policy "teacher_can_read_own_row"
 
 -- 3) observations 접근 권한 (RLS) --------------------------------------
 
--- 누구나(로그인 여부 상관없이) 새 기록은 항상 '대기중' 상태로만 등록 가능
--- (교사가 관리자 페이지에 로그인된 상태로 학생 화면에서 글을 올려도 막히지 않도록 anon이 아닌 public 대상으로 설정)
--- 단, 작성자 구분을 'teacher'로 올리려면 teachers 테이블에 등록된 교사 계정으로 로그인되어 있어야 함 (학생의 위장 방지)
+-- 새 기록 등록 규칙 (로그인 여부와 상관없이 적용되도록 anon이 아닌 public 대상으로 설정)
+--  1) 누구나: '대기중(pending)' 상태로만 등록 가능
+--  2) 작성자 구분 'teacher'는 teachers 테이블에 등록된 교사 계정으로 로그인했을 때만 가능 (학생의 위장 방지)
+--  3) 교사가 본인 담당 학년(또는 전체 학년 담당)에 올리는 'teacher' 자료는 '승인됨(approved)'으로 바로 등록 가능
 drop policy if exists "students_can_insert_pending" on public.observations;
-create policy "students_can_insert_pending"
+drop policy if exists "insert_observations" on public.observations;
+create policy "insert_observations"
   on public.observations for insert
   to public
   with check (
-    status = 'pending'
-    and (
-      author_type = 'student'
-      or exists (select 1 from public.teachers t where t.user_id = auth.uid())
+    (
+      status = 'pending'
+      and (
+        author_type = 'student'
+        or exists (select 1 from public.teachers t where t.user_id = auth.uid())
+      )
+    )
+    or
+    (
+      status = 'approved'
+      and author_type = 'teacher'
+      and exists (
+        select 1 from public.teachers t
+        where t.user_id = auth.uid()
+          and (t.grade = observations.grade or t.grade = 'ALL')
+      )
     )
   );
 

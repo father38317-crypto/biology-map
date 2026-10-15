@@ -7,6 +7,8 @@ const classLayers = {}; // classId -> L.layerGroup
 const activeClassIds = new Set(CONFIG.CLASSES.map((c) => c.id));
 let activeViewGrade = CONFIG.GRADES[0].id;
 let isTeacher = false;
+let teacherGrade = null; // '1' / '2' / '3' / 'ALL'
+let teacherUserId = null;
 let accuracyCircle = null;
 let pendingLocationInfo = null; // { source: "click" | "gps", accuracy?: number }
 
@@ -78,20 +80,26 @@ function initMap() {
 
 // 교사 계정으로 로그인된 브라우저인지 확인 (teachers 테이블에 본인 행이 있으면 교사)
 async function detectTeacher() {
-  let teacher = false;
+  let grade = null;
+  let userId = null;
   const {
     data: { session },
   } = await supabaseClient.auth.getSession();
   if (session) {
     const { data } = await supabaseClient
       .from("teachers")
-      .select("user_id")
+      .select("grade")
       .eq("user_id", session.user.id)
       .maybeSingle();
-    teacher = !!data;
+    if (data) {
+      grade = data.grade;
+      userId = session.user.id;
+    }
   }
-  isTeacher = teacher;
-  document.getElementById("teacherStatus").hidden = !teacher;
+  isTeacher = !!grade;
+  teacherGrade = grade;
+  teacherUserId = userId;
+  document.getElementById("teacherStatus").hidden = !isTeacher;
 }
 
 function populateClassSelect() {
@@ -210,6 +218,13 @@ function addObservationMarker(obs) {
   marker.bindPopup(renderPopupHtml(obs), { maxWidth: 260 });
   const layer = classLayers[obs.class_name];
   (layer || map).addLayer(marker);
+  return marker;
+}
+
+// 핀이 가까운 핀들과 묶여 있지 않고 화면에 보일 때만 팝업을 연다 (묶인 경우는 숫자 뱃지로 보인다)
+function showMarkerPopup(layer, marker) {
+  const visible = layer && layer.getVisibleParent ? layer.getVisibleParent(marker) : marker;
+  if (visible === marker) marker.openPopup();
 }
 
 function renderPopupHtml(obs, opts = {}) {
@@ -446,14 +461,33 @@ async function handleSubmit(e) {
     };
     if (isTeacher && document.getElementById("postAsTeacher").checked) {
       row.author_type = "teacher";
+      // 본인 담당 학년(또는 전체 학년 담당)의 교사 자료는 바로 승인. 서버 규칙(RLS)도 같은 조건으로 검사한다.
+      if (teacherGrade === "ALL" || teacherGrade === grade) {
+        row.status = "approved";
+        row.reviewed_at = new Date().toISOString();
+        row.reviewed_by = teacherUserId;
+      }
     }
 
     const { error: insertError } = await supabaseClient.from("observations").insert(row);
     if (insertError) throw insertError;
 
-    addLocalPendingMarker(row);
+    // 저장은 이미 끝났으므로, 아래 화면 갱신에서 문제가 생겨도 "오류"로 보이지 않게 한다 (재제출로 인한 중복 등록 방지)
+    try {
+      if (row.status === "approved") {
+        addApprovedLocalMarker(row);
+      } else {
+        addLocalPendingMarker(row);
+      }
+    } catch (uiError) {
+      console.warn("등록 후 지도 갱신 중 오류:", uiError);
+    }
     closeEntryModal();
-    alert("제출 완료! 선생님이 승인하면 모두에게 지도에 표시됩니다.");
+    alert(
+      row.status === "approved"
+        ? "등록 완료! 교사 자료는 자동 승인되어 바로 지도에 표시됩니다."
+        : "제출 완료! 선생님이 승인하면 모두에게 지도에 표시됩니다."
+    );
   } catch (err) {
     console.error(err);
     setFormStatus("오류가 발생했습니다: " + (err.message || err), true);
@@ -473,7 +507,18 @@ function addLocalPendingMarker(row) {
   marker.bindPopup(renderPopupHtml(row, { pending: true }), { maxWidth: 260 });
   const layer = classLayers[row.class_name];
   (layer || map).addLayer(marker);
-  marker.openPopup();
+  showMarkerPopup(layer, marker);
+}
+
+// 교사 자료처럼 등록과 동시에 승인된 글: 같은 학년을 보고 있으면 바로 핀을 추가하고,
+// 다른 학년 탭으로 전환하는 경우에는 전환 시 서버에서 다시 불러오는 목록에 이미 포함된다
+function addApprovedLocalMarker(row) {
+  if (row.grade !== activeViewGrade) {
+    switchGrade(row.grade);
+    return;
+  }
+  const marker = addObservationMarker(row);
+  showMarkerPopup(classLayers[row.class_name], marker);
 }
 
 document.addEventListener("DOMContentLoaded", initMap);
