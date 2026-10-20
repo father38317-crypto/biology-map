@@ -53,6 +53,21 @@ function formatDateTime(iso) {
   });
 }
 
+// Supabase는 한 번에 최대 1000건까지만 돌려주므로, 전체를 여러 쪽으로 나눠 가져온다.
+// makeQuery: 호출할 때마다 새 조회(select(..., { count: "exact" }) 포함)를 만들어 돌려주는 함수
+async function fetchAllPages(makeQuery, pageSize = 1000) {
+  const all = [];
+  let total = Infinity;
+  while (all.length < total) {
+    const { data, error, count } = await makeQuery().range(all.length, all.length + pageSize - 1);
+    if (error) return { data: null, error };
+    if (count != null) total = count;
+    if (!data.length) break;
+    all.push(...data);
+  }
+  return { data: all, error: null };
+}
+
 function generateUuid() {
   if (crypto.randomUUID) return crypto.randomUUID();
   const b = crypto.getRandomValues(new Uint8Array(16));

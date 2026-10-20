@@ -7,10 +7,13 @@ async function runBackup() {
 
   try {
     statusEl.textContent = "데이터 불러오는 중...";
-    const { data: rows, error } = await supabaseClient
-      .from("observations")
-      .select("*")
-      .order("created_at", { ascending: true });
+    const { data: rows, error } = await fetchAllPages(() =>
+      supabaseClient
+        .from("observations")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: true })
+        .order("id")
+    );
     if (error) throw error;
 
     const zip = new JSZip();

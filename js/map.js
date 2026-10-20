@@ -6,6 +6,8 @@ let pendingClickLatLng = null;
 const classLayers = {}; // classId -> L.layerGroup
 const activeClassIds = new Set(CONFIG.CLASSES.map((c) => c.id));
 let activeViewGrade = CONFIG.GRADES[0].id;
+let userPickedGrade = false; // 학년 탭을 직접 눌렀는지 (눌렀을 때만 등록창의 학년을 그 탭으로 미리 채움)
+let lastChoice = null; // 이 화면에서 방금 글을 올릴 때 고른 { grade, class_name } (이름은 다른 학생이 이어서 쓸 수 있어 저장하지 않음)
 let isTeacher = false;
 let teacherGrade = null; // '1' / '2' / '3' / 'ALL'
 let teacherUserId = null;
@@ -102,8 +104,10 @@ async function detectTeacher() {
   document.getElementById("teacherStatus").hidden = !isTeacher;
 }
 
+// 학년/반은 기본값 없이 직접 고르게 한다 (기본 선택을 그대로 두고 올려서 엉뚱한 반으로 저장되는 것을 막기 위함)
 function populateClassSelect() {
   const sel = document.getElementById("classSelect");
+  sel.appendChild(new Option("반 선택", ""));
   CONFIG.CLASSES.forEach((c) => {
     const opt = document.createElement("option");
     opt.value = c.id;
@@ -114,13 +118,13 @@ function populateClassSelect() {
 
 function populateGradeSelect() {
   const sel = document.getElementById("gradeSelect");
+  sel.appendChild(new Option("학년 선택", ""));
   CONFIG.GRADES.forEach((g) => {
     const opt = document.createElement("option");
     opt.value = g.id;
     opt.textContent = g.label;
     sel.appendChild(opt);
   });
-  sel.value = activeViewGrade;
 }
 
 function buildGradeTabs() {
@@ -131,7 +135,10 @@ function buildGradeTabs() {
     tab.type = "button";
     tab.className = "grade-tab" + (g.id === activeViewGrade ? " active" : "");
     tab.textContent = g.label;
-    tab.addEventListener("click", () => switchGrade(g.id));
+    tab.addEventListener("click", () => {
+      userPickedGrade = true;
+      switchGrade(g.id);
+    });
     bar.appendChild(tab);
   });
 }
@@ -143,8 +150,6 @@ function switchGrade(gradeId) {
     tab.classList.toggle("active", CONFIG.GRADES[i].id === gradeId);
   });
   Object.values(classLayers).forEach((layer) => layer.clearLayers());
-  const gradeSelect = document.getElementById("gradeSelect");
-  if (gradeSelect) gradeSelect.value = gradeId;
   loadApprovedObservations();
 }
 
@@ -196,12 +201,17 @@ function setClassVisible(classId, visible) {
 
 // 교사가 로그인된 브라우저에서도 학생들과 똑같이 승인된 전체 기록이 보이도록 로그인 세션이 없는 클라이언트로 조회한다
 async function loadApprovedObservations() {
-  const { data, error } = await supabasePublic
-    .from("observations")
-    .select("*")
-    .eq("status", "approved")
-    .eq("grade", activeViewGrade)
-    .order("created_at", { ascending: false });
+  const grade = activeViewGrade;
+  const { data, error } = await fetchAllPages(() =>
+    supabasePublic
+      .from("observations")
+      .select("*", { count: "exact" })
+      .eq("status", "approved")
+      .eq("grade", grade)
+      .order("created_at", { ascending: false })
+      .order("id")
+  );
+  if (grade !== activeViewGrade) return; // 불러오는 사이 다른 학년 탭으로 바뀌었으면 결과를 버린다
 
   if (error) {
     console.error("관찰 기록 로딩 실패:", error);
@@ -369,7 +379,8 @@ function renderLocationInfo() {
 }
 
 function openEntryModal() {
-  document.getElementById("gradeSelect").value = activeViewGrade;
+  document.getElementById("gradeSelect").value = lastChoice ? lastChoice.grade : userPickedGrade ? activeViewGrade : "";
+  document.getElementById("classSelect").value = lastChoice ? lastChoice.class_name : "";
   document.getElementById("teacherPostRow").hidden = !isTeacher;
   renderLocationInfo();
   document.getElementById("entryModal").hidden = false;
@@ -414,7 +425,7 @@ async function handleSubmit(e) {
   const plantName = (fd.get("plant_name") || "").trim();
 
   if (!studentName || !grade || !className || !plantName) {
-    setFormStatus("이름, 학년, 반, 생물 이름은 필수 입력입니다.", true);
+    setFormStatus("이름, 학년, 반, 생물 이름은 꼭 입력(선택)해야 해요.", true);
     return;
   }
 
@@ -473,6 +484,7 @@ async function handleSubmit(e) {
     const { error: insertError } = await supabaseClient.from("observations").insert(row);
     if (insertError) throw insertError;
 
+    lastChoice = { grade: row.grade, class_name: row.class_name };
     rememberMyRecord({
       id: row.id,
       student_name: row.student_name,

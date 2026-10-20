@@ -112,13 +112,13 @@ function rpcErrorMessage(error) {
 }
 
 // 검색칸이 비어 있으면 가장 최근에 이 기기에서 올린 글의 이름/학년/반으로 미리 채워준다
+// 반은 잘못 골라 올린 경우도 찾을 수 있도록 기본을 "전체 반"으로 둔다
 function prefillSearchFields(latest) {
   const nameInput = document.getElementById("searchName");
   if (nameInput.value) return;
   if (latest) {
     nameInput.value = latest.student_name;
     document.getElementById("searchGrade").value = latest.grade;
-    document.getElementById("searchClass").value = latest.class_name;
   } else {
     document.getElementById("searchGrade").value = activeViewGrade;
   }
@@ -151,10 +151,11 @@ async function handleNameSearch(e) {
   }
   if (data.length === 0) {
     statusEl.textContent =
-      "찾는 글이 없어요. 이름(띄어쓰기는 상관없어요), 학년, 반을 다시 확인해 보세요. 선생님이 삭제한 글은 보이지 않아요.";
+      "찾는 글이 없어요. 이름(띄어쓰기는 상관없어요)과 학년을 다시 확인해 보세요. 반을 잘못 골라 올렸을 수 있으니 '전체 반'으로도 찾아보세요. 선생님이 삭제한 글은 보이지 않아요.";
     return;
   }
-  statusEl.textContent = `${gradeLabel(grade)} ${classLabel(cls)} ${name} 학생의 글 ${data.length}건을 찾았어요.`;
+  const where = cls ? `${gradeLabel(grade)} ${classLabel(cls)}` : `${gradeLabel(grade)} 전체 반`;
+  statusEl.textContent = `${where} ${name} 학생의 글 ${data.length}건을 찾았어요. 반이 다르게 올라가 있으면 선생님께 알려주세요.`;
   resultsEl.innerHTML = data.map((r) => renderMyRecord(r, r, "found")).join("");
 }
 
@@ -169,6 +170,7 @@ function fillSelect(selectEl, items) {
 
 function initMyRecords() {
   fillSelect(document.getElementById("searchGrade"), CONFIG.GRADES);
+  document.getElementById("searchClass").appendChild(new Option("전체 반", ""));
   fillSelect(document.getElementById("searchClass"), CONFIG.CLASSES);
   document.getElementById("nameSearchForm").addEventListener("submit", handleNameSearch);
   document.getElementById("searchResults").addEventListener("click", handleLocateClickInList);

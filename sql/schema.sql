@@ -119,8 +119,17 @@ $$;
 revoke all on function public.get_my_observations(uuid[]) from public;
 grant execute on function public.get_my_observations(uuid[]) to anon, authenticated;
 
--- 이름으로 내 기록 찾기 (다른 기기에서도 확인 가능). 이름 + 학년 + 반이 모두 정확히 일치해야 하고(띄어쓰기는 무시),
--- 돌려주는 정보는 상태/날짜/생물 이름뿐이며 승인 전 글의 위치(좌표)와 사진·설명은 알려주지 않음. 최대 30건.
+-- 이름 비교용 정리: 눈에 안 보이는 공백(전각 공백, NBSP 등)과 한글 입력 방식 차이(조합형/완성형), 영문 대소문자를 무시
+create or replace function public.normalize_person_name(p_text text)
+returns text
+language sql
+immutable
+as $$
+  select lower(regexp_replace(normalize(coalesce(p_text, ''), nfc), '[\s 　​﻿]+', '', 'g'));
+$$;
+
+-- 이름으로 내 기록 찾기 (다른 기기에서도 확인 가능). 이름 + 학년이 정확히 일치해야 하고, 반은 지정하거나 비워서 '전체 반'으로 찾을 수 있음
+-- (반을 잘못 골라 올린 글도 찾기 위함). 돌려주는 정보는 상태/날짜/생물 이름뿐이며 승인 전 글의 위치(좌표)와 사진·설명은 알려주지 않음. 최대 50건.
 create or replace function public.find_observations_by_name(p_name text, p_grade text, p_class text)
 returns table (
   id uuid,
@@ -145,12 +154,12 @@ as $$
          case when o.status = 'approved' then o.lat end,
          case when o.status = 'approved' then o.lng end
   from public.observations o
-  where char_length(replace(trim(p_name), ' ', '')) >= 2
-    and replace(o.student_name, ' ', '') = replace(trim(p_name), ' ', '')
+  where char_length(public.normalize_person_name(p_name)) >= 2
+    and public.normalize_person_name(o.student_name) = public.normalize_person_name(p_name)
     and o.grade = p_grade
-    and o.class_name = p_class
+    and (coalesce(p_class, '') = '' or o.class_name = p_class)
   order by o.created_at desc
-  limit 30;
+  limit 50;
 $$;
 
 revoke all on function public.find_observations_by_name(text, text, text) from public;

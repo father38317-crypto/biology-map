@@ -8,9 +8,12 @@ async function initAdmin() {
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
   document.getElementById("backupBtn").addEventListener("click", () => runBackup());
-  document.getElementById("statusFilter").addEventListener("change", renderList);
-  document.getElementById("classFilter").addEventListener("change", renderList);
-  document.getElementById("gradeFilter").addEventListener("change", renderList);
+  ["statusFilter", "classFilter", "gradeFilter"].forEach((id) =>
+    document.getElementById(id).addEventListener("change", onFilterChange)
+  );
+  document.getElementById("searchInput").addEventListener("input", onFilterChange);
+  document.getElementById("reloadBtn").addEventListener("click", reloadList);
+  document.getElementById("list").addEventListener("click", handleListClick);
   document.getElementById("changePwBtn").addEventListener("click", () => {
     document.getElementById("changePwSection").hidden = false;
   });
@@ -36,8 +39,9 @@ async function initAdmin() {
 
   supabaseClient.auth.onAuthStateChange((_event, session) => {
     if (session) {
+      const sameUser = currentUser && currentUser.id === session.user.id;
       currentUser = session.user;
-      showAdmin();
+      if (!sameUser) showAdmin(); // 같은 계정의 토큰 갱신/탭 복귀 때는 목록을 다시 불러오지 않는다
     } else {
       currentUser = null;
       showLogin();
@@ -114,7 +118,7 @@ async function showAdmin() {
     gradeInfoEl.textContent = myGrade === "ALL" ? "담당: 전체 학년" : `담당: ${gradeLabel(myGrade)}`;
   }
 
-  renderList();
+  reloadList();
 }
 
 function buildClassFilterOptions() {
@@ -137,50 +141,93 @@ function buildGradeFilterOptions() {
   });
 }
 
-async function fetchAll() {
-  const { data, error } = await supabaseClient
-    .from("observations")
-    .select("*")
-    .order("created_at", { ascending: false });
+const PAGE_SIZE = 60; // 한 번에 화면에 그리는 카드 수 (글이 수천 건이어도 휴대폰에서 느려지지 않게)
+let visibleCount = PAGE_SIZE;
+
+// 서버에서 내가 볼 수 있는 전체 글을 가져온다 (1000건씩 나눠서 끝까지)
+async function reloadList() {
+  document.getElementById("list").innerHTML = "<p>불러오는 중...</p>";
+  const { data, error } = await fetchAllPages(() =>
+    supabaseClient
+      .from("observations")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .order("id")
+  );
   if (error) {
     console.error(error);
     alert("데이터를 불러오지 못했습니다: " + error.message);
-    return [];
+    allRows = [];
+  } else {
+    allRows = data;
   }
-  return data;
+  renderList();
 }
 
-async function renderList() {
-  const listEl = document.getElementById("list");
-  listEl.innerHTML = "<p>불러오는 중...</p>";
-  allRows = await fetchAll();
+function onFilterChange() {
+  visibleCount = PAGE_SIZE;
+  renderList();
+}
 
+// 이름/띄어쓰기/대소문자 차이를 무시하고 비교하기 위한 정리
+function normalizeForSearch(text) {
+  return String(text ?? "").normalize("NFC").toLowerCase().replace(/[\s 　​﻿]+/g, "");
+}
+
+// 이미 불러온 목록을 필터·검색 조건에 맞게 화면에 다시 그린다 (서버 재조회 없음)
+function renderList() {
+  const listEl = document.getElementById("list");
   const statusFilter = document.getElementById("statusFilter").value;
   const classFilter = document.getElementById("classFilter").value;
   const gradeFilter = document.getElementById("gradeFilter").value;
+  const keyword = normalizeForSearch(document.getElementById("searchInput").value);
 
   let rows = allRows;
   if (statusFilter !== "all") rows = rows.filter((r) => r.status === statusFilter);
   if (classFilter !== "all") rows = rows.filter((r) => r.class_name === classFilter);
   if (gradeFilter !== "all") rows = rows.filter((r) => r.grade === gradeFilter);
+  if (keyword) {
+    rows = rows.filter(
+      (r) => normalizeForSearch(r.student_name).includes(keyword) || normalizeForSearch(r.plant_name).includes(keyword)
+    );
+  }
 
   const pendingCount = allRows.filter((r) => r.status === "pending").length;
   document.getElementById("countInfo").textContent =
-    `전체 ${allRows.length}건 · 대기 ${pendingCount}건 · 표시 중 ${rows.length}건`;
+    `전체 ${allRows.length}건 · 대기 ${pendingCount}건 · 조건에 맞는 글 ${rows.length}건`;
 
   if (rows.length === 0) {
     listEl.innerHTML = "<p>게시물이 없습니다.</p>";
     return;
   }
 
-  listEl.innerHTML = rows.map(renderCard).join("");
+  const shown = rows.slice(0, visibleCount);
+  listEl.innerHTML =
+    shown.map(renderCard).join("") +
+    (rows.length > shown.length
+      ? `<div class="more-wrap"><button type="button" class="btn btn-secondary" data-action="more">더 보기 (${shown.length}/${rows.length})</button></div>`
+      : "");
+}
 
-  rows.forEach((r) => {
-    const approveBtn = document.getElementById(`approve-${r.id}`);
-    if (approveBtn) approveBtn.addEventListener("click", () => approveRow(r.id));
-    document.getElementById(`edit-${r.id}`).addEventListener("click", () => openEditModal(r.id));
-    document.getElementById(`delete-${r.id}`).addEventListener("click", () => deleteRow(r.id, r.photo_path));
-  });
+function handleListClick(e) {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  switch (btn.dataset.action) {
+    case "approve":
+      approveRow(id);
+      break;
+    case "edit":
+      openEditModal(id);
+      break;
+    case "delete":
+      deleteRow(id, allRows.find((r) => r.id === id)?.photo_path);
+      break;
+    case "more":
+      visibleCount += PAGE_SIZE;
+      renderList();
+      break;
+  }
 }
 
 function renderCard(r) {
@@ -211,9 +258,9 @@ function renderCard(r) {
         <div class="card-field"><b>특징</b> ${escapeHtml(r.characteristics || "-")}</div>
         <div class="card-field"><b>습성</b> ${escapeHtml(r.behavior || "-")}</div>
         <div class="card-actions">
-          ${r.status !== "approved" ? `<button id="approve-${r.id}" class="btn btn-approve">승인</button>` : ""}
-          <button id="edit-${r.id}" class="btn btn-secondary">수정</button>
-          <button id="delete-${r.id}" class="btn btn-delete">삭제</button>
+          ${r.status !== "approved" ? `<button type="button" data-action="approve" data-id="${r.id}" class="btn btn-approve">승인</button>` : ""}
+          <button type="button" data-action="edit" data-id="${r.id}" class="btn btn-secondary">수정</button>
+          <button type="button" data-action="delete" data-id="${r.id}" class="btn btn-delete">삭제</button>
         </div>
       </div>
     </div>`;
@@ -329,36 +376,38 @@ async function handleEditSubmit(e) {
   }
 
   closeEditModal();
-  renderList();
+  reloadList();
 }
 
 async function approveRow(id) {
-  const { error } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("observations")
     .update({
       status: "approved",
       reviewed_at: new Date().toISOString(),
       reviewed_by: currentUser?.id,
     })
-    .eq("id", id);
-  if (error) {
-    alert("승인 실패: " + error.message);
+    .eq("id", id)
+    .select("id");
+  if (error || !data || data.length === 0) {
+    alert("승인 실패: " + (error ? error.message : "승인 권한이 없거나 이미 삭제된 글입니다."));
     return;
   }
-  renderList();
+  reloadList();
 }
 
 async function deleteRow(id, photoPath) {
   if (!confirm("정말 삭제하시겠습니까? 되돌릴 수 없습니다.")) return;
+  // 글을 먼저 지우고, 지워진 것이 확인되면 사진을 지운다 (글 삭제가 실패했는데 사진만 사라지는 일을 막기 위해)
+  const { data, error } = await supabaseClient.from("observations").delete().eq("id", id).select("id");
+  if (error || !data || data.length === 0) {
+    alert("삭제 실패: " + (error ? error.message : "삭제 권한이 없거나 이미 삭제된 글입니다."));
+    return;
+  }
   if (photoPath) {
     await supabaseClient.storage.from(CONFIG.PHOTO_BUCKET).remove([photoPath]);
   }
-  const { error } = await supabaseClient.from("observations").delete().eq("id", id);
-  if (error) {
-    alert("삭제 실패: " + error.message);
-    return;
-  }
-  renderList();
+  reloadList();
 }
 
 document.addEventListener("DOMContentLoaded", initAdmin);
