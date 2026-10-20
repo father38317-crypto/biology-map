@@ -99,6 +99,21 @@ button.admin-link {
   color: var(--muted);
 }
 
+.name-search {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--green-50);
+}
+
+.my-section-title {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
 .my-empty {
   text-align: center;
   color: var(--muted);

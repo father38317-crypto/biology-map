@@ -119,6 +119,43 @@ $$;
 revoke all on function public.get_my_observations(uuid[]) from public;
 grant execute on function public.get_my_observations(uuid[]) to anon, authenticated;
 
+-- 이름으로 내 기록 찾기 (다른 기기에서도 확인 가능). 이름 + 학년 + 반이 모두 정확히 일치해야 하고(띄어쓰기는 무시),
+-- 돌려주는 정보는 상태/날짜/생물 이름뿐이며 승인 전 글의 위치(좌표)와 사진·설명은 알려주지 않음. 최대 30건.
+create or replace function public.find_observations_by_name(p_name text, p_grade text, p_class text)
+returns table (
+  id uuid,
+  student_name text,
+  plant_name text,
+  grade text,
+  class_name text,
+  status text,
+  created_at timestamptz,
+  reviewed_at timestamptz,
+  edited_at timestamptz,
+  lat double precision,
+  lng double precision
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select o.id, o.student_name, o.plant_name, o.grade, o.class_name,
+         o.status, o.created_at, o.reviewed_at, o.edited_at,
+         case when o.status = 'approved' then o.lat end,
+         case when o.status = 'approved' then o.lng end
+  from public.observations o
+  where char_length(replace(trim(p_name), ' ', '')) >= 2
+    and replace(o.student_name, ' ', '') = replace(trim(p_name), ' ', '')
+    and o.grade = p_grade
+    and o.class_name = p_class
+  order by o.created_at desc
+  limit 30;
+$$;
+
+revoke all on function public.find_observations_by_name(text, text, text) from public;
+grant execute on function public.find_observations_by_name(text, text, text) to anon, authenticated;
+
 alter table public.observations enable row level security;
 
 create index if not exists idx_observations_status on public.observations (status);

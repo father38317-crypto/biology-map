@@ -111,7 +111,26 @@
           <button type="button" id="closeMyBtn" class="icon-btn" aria-label="닫기">✕</button>
         </div>
         <div class="modal-body">
-          <p class="my-note">이 기기(이 브라우저)에서 올린 기록만 보여요. 다른 기기나 다른 브라우저(예: 카카오톡 안에서 연 화면 ↔ 크롬)에서는 보이지 않아요.</p>
+          <form id="nameSearchForm" class="name-search">
+            <strong>이름으로 찾기</strong>
+            <p class="my-note">다른 기기나 다른 브라우저(예: 카카오톡 안에서 연 화면 ↔ 크롬)에서 올린 글도 이름·학년·반으로 찾을 수 있어요.</p>
+            <div class="form-row">
+              <label>이름
+                <input type="text" id="searchName" required maxlength="20" placeholder="홍길동" />
+              </label>
+              <label>학년
+                <select id="searchGrade"></select>
+              </label>
+              <label>반
+                <select id="searchClass"></select>
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary">찾기</button>
+          </form>
+          <p id="searchStatus" class="form-status"></p>
+          <div id="searchResults"></div>
+
+          <h3 class="my-section-title">이 기기에서 올린 기록</h3>
           <p id="myRecordsStatus" class="form-status"></p>
           <div id="myRecordsList"></div>
           <div class="modal-footer">

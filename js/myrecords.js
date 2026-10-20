@@ -72,8 +72,10 @@ async function openMyRecords() {
   const statusEl = document.getElementById("myRecordsStatus");
   const local = loadMyRecords();
 
+  prefillSearchFields(local[0]);
+
   if (local.length === 0) {
-    listEl.innerHTML = '<p class="my-empty">이 기기에서 등록한 기록이 아직 없어요.<br />기록을 올리면 여기에서 승인 상태와 수정 여부를 볼 수 있어요.</p>';
+    listEl.innerHTML = '<p class="my-empty">이 기기에서 등록한 기록이 아직 없어요.<br />위에서 이름으로 찾아보거나, 기록을 올린 뒤 다시 열어보세요.</p>';
     statusEl.textContent = "";
     return;
   }
@@ -83,7 +85,7 @@ async function openMyRecords() {
 
   const { data, error } = await supabasePublic.rpc("get_my_observations", { p_ids: local.map((r) => r.id) });
   if (error) {
-    statusEl.textContent = "상태를 확인하지 못했어요. 잠시 후 다시 열어보세요. (" + error.message + ")";
+    statusEl.textContent = rpcErrorMessage(error);
     listEl.innerHTML = local.map((r) => renderMyRecord(r, null, "unknown")).join("");
     return;
   }
@@ -102,7 +104,74 @@ function closeMyRecords() {
   document.getElementById("myModal").hidden = true;
 }
 
+function rpcErrorMessage(error) {
+  if (/could not find the function|schema cache/i.test(error.message || "")) {
+    return "아직 관리자 설정(데이터베이스 업데이트)이 끝나지 않았어요. 선생님께 알려주세요.";
+  }
+  return "불러오지 못했어요. 잠시 후 다시 시도해 주세요. (" + error.message + ")";
+}
+
+// 검색칸이 비어 있으면 가장 최근에 이 기기에서 올린 글의 이름/학년/반으로 미리 채워준다
+function prefillSearchFields(latest) {
+  const nameInput = document.getElementById("searchName");
+  if (nameInput.value) return;
+  if (latest) {
+    nameInput.value = latest.student_name;
+    document.getElementById("searchGrade").value = latest.grade;
+    document.getElementById("searchClass").value = latest.class_name;
+  } else {
+    document.getElementById("searchGrade").value = activeViewGrade;
+  }
+}
+
+async function handleNameSearch(e) {
+  e.preventDefault();
+  const name = document.getElementById("searchName").value.trim();
+  const grade = document.getElementById("searchGrade").value;
+  const cls = document.getElementById("searchClass").value;
+  const statusEl = document.getElementById("searchStatus");
+  const resultsEl = document.getElementById("searchResults");
+
+  if (name.replace(/\s/g, "").length < 2) {
+    statusEl.textContent = "이름을 두 글자 이상 입력해 주세요.";
+    resultsEl.innerHTML = "";
+    return;
+  }
+
+  statusEl.textContent = "찾는 중...";
+  resultsEl.innerHTML = "";
+  const { data, error } = await supabasePublic.rpc("find_observations_by_name", {
+    p_name: name,
+    p_grade: grade,
+    p_class: cls,
+  });
+  if (error) {
+    statusEl.textContent = rpcErrorMessage(error);
+    return;
+  }
+  if (data.length === 0) {
+    statusEl.textContent =
+      "찾는 글이 없어요. 이름(띄어쓰기는 상관없어요), 학년, 반을 다시 확인해 보세요. 선생님이 삭제한 글은 보이지 않아요.";
+    return;
+  }
+  statusEl.textContent = `${gradeLabel(grade)} ${classLabel(cls)} ${name} 학생의 글 ${data.length}건을 찾았어요.`;
+  resultsEl.innerHTML = data.map((r) => renderMyRecord(r, r, "found")).join("");
+}
+
+function fillSelect(selectEl, items) {
+  items.forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label;
+    selectEl.appendChild(opt);
+  });
+}
+
 function initMyRecords() {
+  fillSelect(document.getElementById("searchGrade"), CONFIG.GRADES);
+  fillSelect(document.getElementById("searchClass"), CONFIG.CLASSES);
+  document.getElementById("nameSearchForm").addEventListener("submit", handleNameSearch);
+  document.getElementById("searchResults").addEventListener("click", handleLocateClickInList);
   document.getElementById("myRecordsBtn").addEventListener("click", openMyRecords);
   document.getElementById("closeMyBtn").addEventListener("click", closeMyRecords);
   document.getElementById("clearMyBtn").addEventListener("click", () => {
@@ -110,13 +179,15 @@ function initMyRecords() {
     saveMyRecords([]);
     openMyRecords();
   });
-  document.getElementById("myRecordsList").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-locate]");
-    if (!btn) return;
-    closeMyRecords();
-    switchGrade(btn.dataset.grade);
-    map.setView([Number(btn.dataset.lat), Number(btn.dataset.lng)], CONFIG.DEFAULT_ZOOM);
-  });
+  document.getElementById("myRecordsList").addEventListener("click", handleLocateClickInList);
+}
+
+function handleLocateClickInList(e) {
+  const btn = e.target.closest("[data-locate]");
+  if (!btn) return;
+  closeMyRecords();
+  switchGrade(btn.dataset.grade);
+  map.setView([Number(btn.dataset.lat), Number(btn.dataset.lng)], CONFIG.DEFAULT_ZOOM);
 }
 
 document.addEventListener("DOMContentLoaded", initMyRecords);
